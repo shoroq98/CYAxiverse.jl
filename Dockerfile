@@ -40,16 +40,16 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install julia 
 WORKDIR /opt/cytools/
-RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.4-linux-x86_64.tar.gz
-RUN tar xf julia-1.8.4-linux-x86_64.tar.gz
-ENV PATH="$PWD/julia-1.8.4/bin:$PATH"
-RUN ln -s $PWD/julia-1.8.4/bin/julia $VIRTUAL_ENV/bin/julia
-RUN rm julia-1.8.4-linux-x86_64.tar.gz
-# RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.7/julia-1.7.1-linux-x86_64.tar.gz
-# RUN tar xf julia-1.7.1-linux-x86_64.tar.gz
-# ENV PATH="$PWD/julia-1.7.1/bin:$PATH"
-# RUN ln -s $PWD/julia-1.7.1/bin/julia $VIRTUAL_ENV/bin/julia
-# RUN rm julia-1.7.1-linux-x86_64.tar.gz
+##RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.4-linux-x86_64.tar.gz
+##RUN tar xf julia-1.8.4-linux-x86_64.tar.gz
+##ENV PATH="$PWD/julia-1.8.4/bin:$PATH"
+##RUN ln -s $PWD/julia-1.8.4/bin/julia $VIRTUAL_ENV/bin/julia
+##RUN rm julia-1.8.4-linux-x86_64.tar.gz
+RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.7/julia-1.7.1-linux-x86_64.tar.gz
+RUN tar xf julia-1.7.1-linux-x86_64.tar.gz
+ ENV PATH="$PWD/julia-1.7.1/bin:$PATH"
+ RUN ln -s $PWD/julia-1.7.1/bin/julia $VIRTUAL_ENV/bin/julia
+ RUN rm julia-1.7.1-linux-x86_64.tar.gz
 
 # Install pip packages
 # Install pip packages
@@ -76,7 +76,7 @@ RUN dpkg -i libtopcom0_1.1.2+ds-1+cytools-1_${ARCH}.deb
 RUN dpkg -i libtopcom-dev_1.1.2+ds-1+cytools-1_${ARCH}.deb
 
 # Download file from github to keep track of the number of downloads
-RUN wget https://github.com/LiamMcAllisterGroup/cytools/releases/download/v1.0.0/download_counter.txt
+RUN wget https://github.com/LiamMcAllisterGroup/cytools/releases/download/v0.8.0/download_counter.txt
 
 # Copy code and installer
 COPY . /opt/cytools/
@@ -85,7 +85,7 @@ RUN python3 setup.py install
 
 # Copy CYAxiverse.jl package
 WORKDIR /opt/
-RUN git clone -b vmm https://github.com/Julia-meets-String-Theory/CYAxiverse.jl.git
+RUN git clone -b main https://github.com/shoroq98/CYAxiverse.jl.git
 WORKDIR /opt/CYAxiverse.jl/
 ENV PYTHON="$VIRTUAL_ENV/bin/python3"
 RUN julia --project="/opt/CYAxiverse.jl/" add_CYAxiverse.jl
