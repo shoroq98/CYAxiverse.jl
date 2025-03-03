@@ -51,6 +51,19 @@ RUN tar xf julia-1.7.1-linux-x86_64.tar.gz
  RUN ln -s $PWD/julia-1.7.1/bin/julia $VIRTUAL_ENV/bin/julia
  RUN rm julia-1.7.1-linux-x86_64.tar.gz
 
+# Install required Julia packages with specific versions
+RUN julia -e 'using Pkg; \
+    Pkg.activate("/opt/CYAxiverse.jl/"); \
+    Pkg.add(PackageSpec(name="CairoMakie", version="0.10.2")); \
+    Pkg.add(PackageSpec(name="Makie", version="0.17.3")); \
+    Pkg.add(PackageSpec(name="Roots", version="2.0.22")); \
+    Pkg.add(PackageSpec(name="Setfield", version="1.0.0")); \
+    Pkg.add(PackageSpec(name="DocStringExtensions", version="0.8.6")); \
+    Pkg.add(PackageSpec(name="JumpProcesses", version="9.2.0")); \
+    Pkg.add(PackageSpec(name="DiffEqBase", version="6.130.0")); \
+    Pkg.precompile()'
+
+
 # Install pip packages
 # Install pip packages
 ENV CVXOPT_SUITESPARSE_INC_DIR=/usr/include/suitesparse

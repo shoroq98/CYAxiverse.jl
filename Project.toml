@@ -51,6 +51,13 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 Tullio = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
 
+Makie = "ee78f7c6-bfc4-5fd3-9410-7f64766a0de9"
+Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
+DocStringExtensions = "ffbed154-b017-5dcf-8d06-1d6f9b605d89"
+JumpProcesses = "ccbc3e58-d8fd-5fef-b8a6-71e14f59c1b6"
+DiffEqBase = "2b5f629d-d688-53c6-91d1-cebeb43c5d64"
+
+
 [compat]
 julia = "1.7"
 AbstractTrees = "=0.4.3"
@@ -76,6 +83,11 @@ NormalForms = "=0.1.0"
 Optim = "=1.7.0"
 Roots = "=2.0.22"
 Tullio = "=0.3.4"
+Makie = "0.17.3"
+Setfield = "1.0.0"
+DocStringExtensions = "0.8.6"
+JumpProcesses = "9.2.0"
+DiffEqBase = "6.130.0"
 
 
 [extras]
