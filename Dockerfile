@@ -92,7 +92,12 @@ RUN julia --project="/opt/CYAxiverse.jl/" add_CYAxiverse.jl
 
 # Create CGAL code for different dimensions and compile
 WORKDIR /opt/cytools/external/cgal
-RUN for i in $(seq 2 5); do sed "27s/.*/typedef CGAL::Epick_d<CGAL::Dimension_tag<${i}> >    K;/" triangulate.cpp > "cgal-triangulate-${i}d.cpp"; done;
+##RUN for i in $(seq 2 5); do sed "27s/.*/typedef CGAL::Epick_d<CGAL::Dimension_tag<${i}> >    K;/" triangulate.cpp > "cgal-triangulate-${i}d.cpp"; done;
+RUN for i in $(seq 2 5); do \
+  sed -e 's/^const int D = .*;/const int D = '"${i}"';/' \
+      -e 's/^typedef CGAL::Epick_d<.*> K;/typedef CGAL::Epick_d<CGAL::Dimension_tag<D>> K;/' \
+      triangulate.cpp > cgal-triangulate-${i}d.cpp; \
+done
 
 # Fix CGAL headers so that Eigen3 is imported correctly
 RUN sed -i -e 's/Eigen\/Core/eigen3\/Eigen\/Core/g' /usr/include/CGAL/Dimension.h
