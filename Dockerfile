@@ -85,7 +85,7 @@ RUN python3 setup.py install
 
 # Copy CYAxiverse.jl package
 WORKDIR /opt/
-RUN https://github.com/shoroq98/CYAxiverse.jl.git 
+RUN git clone https://github.com/shoroq98/CYAxiverse.jl.git 
 WORKDIR /opt/CYAxiverse.jl/
 ENV PYTHON="$VIRTUAL_ENV/bin/python3"
 RUN julia --project="/opt/CYAxiverse.jl/" add_CYAxiverse.jl
