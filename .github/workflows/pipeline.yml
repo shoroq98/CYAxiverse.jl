@@ -1,0 +1,130 @@
+name: CYAxiverse Parallel Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      h11_min:
+        description: "Minimum h11"
+        default: "4"
+        type: number
+      h11_max:
+        description: "Maximum h11"
+        default: "100"
+        type: number
+      target_axions:
+        description: "Target axions per batch (~2000)"
+        default: "2000"
+        type: number
+      dense_output:
+        description: "Run global analysis + plots (slow CairoMakie)"
+        default: true
+        type: boolean
+
+env:
+  OUTPUT_DIR: /mnt/results
+  JULIA_PROJECT: /opt/CYAxiverse.jl/
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Stage 0: Compute batch splits dynamically
+  # ──────────────────────────────────────────────────────────────
+  compute-batches:
+    runs-on: [self-hosted, macos, docker]
+    outputs:
+      matrix: ${{ steps.batch.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate batch splits
+        id: batch
+        run: |
+          python analysis/tools/create_batches.py \
+            --h11-min ${{ inputs.h11_min || 4 }} \
+            --h11-max ${{ inputs.h11_max || 100 }} \
+            --target ${{ inputs.target_axions || 2000 }} \
+            --output batches.json
+          echo "matrix=$(cat batches.json)" >> "$GITHUB_OUTPUT"
+
+  # ──────────────────────────────────────────────────────────────
+  # Stage 1: Run all batches in parallel
+  # ──────────────────────────────────────────────────────────────
+  run-batches:
+    needs: compute-batches
+    runs-on: [self-hosted, macos, docker]
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: ${{ fromJson(needs.compute-batches.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy scripts to container
+        run: |
+          docker cp analysis/ cyax_pluto:/home/cytools/cyaxiverse_analysis/
+      - name: Run batch h11=${{ matrix.batch.h11_min }}-${{ matrix.batch.h11_max }}
+        run: |
+          docker exec cyax_pluto julia --project=${{ env.JULIA_PROJECT }} \
+            /home/cytools/cyaxiverse_analysis/scripts/run_batch.jl \
+            --h11-min ${{ matrix.batch.h11_min }} \
+            --h11-max ${{ matrix.batch.h11_max }} \
+            --output ${{ env.OUTPUT_DIR }}
+      - name: Upload batch artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: batch-${{ matrix.batch.batch }}
+          path: ${{ env.OUTPUT_DIR }}/batches/batch_*/
+          retention-days: 30
+
+  # ──────────────────────────────────────────────────────────────
+  # Stage 2: Merge all batch outputs
+  # ──────────────────────────────────────────────────────────────
+  merge:
+    needs: run-batches
+    runs-on: [self-hosted, macos, docker]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all batch artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: batch-*
+          merge-multiple: true
+      - name: Restore batch directory structure
+        run: |
+          mkdir -p ${{ env.OUTPUT_DIR }}/batches
+          for d in batch_*/; do
+            mv "$d" "${{ env.OUTPUT_DIR }}/batches/"
+          done
+      - name: Merge batches
+        run: |
+          docker cp analysis/scripts/merge_batches.jl cyax_pluto:/tmp/
+          docker exec cyax_pluto julia --project=${{ env.JULIA_PROJECT }} \
+            /tmp/merge_batches.jl \
+            --input ${{ env.OUTPUT_DIR }} \
+            --output ${{ env.OUTPUT_DIR }}
+
+  # ──────────────────────────────────────────────────────────────
+  # Stage 3: Global analysis + plots (optional, slow)
+  # ──────────────────────────────────────────────────────────────
+  global-analysis:
+    if: ${{ inputs.dense_output != false }}
+    needs: merge
+    runs-on: [self-hosted, macos, docker]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run global analysis
+        run: |
+          docker cp analysis/scripts/global_analysis.jl cyax_pluto:/tmp/
+          docker exec cyax_pluto julia --project=${{ env.JULIA_PROJECT }} \
+            /tmp/global_analysis.jl ${{ env.OUTPUT_DIR }}
+      - name: Upload plots
+        uses: actions/upload-artifact@v4
+        with:
+          name: plots
+          path: ${{ env.OUTPUT_DIR }}/plots/*.png
+          retention-days: 90
+      - name: Upload summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: summary
+          path: |
+            ${{ env.OUTPUT_DIR }}/pipeline_summary.txt
+            ${{ env.OUTPUT_DIR }}/pipeline_merge.log
+          retention-days: 90

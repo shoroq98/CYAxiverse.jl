@@ -1,0 +1,9 @@
+# Analysis pipeline outputs (cached data, logs, plots)
+analysis/outputs/*.jls
+analysis/logs/*
+analysis/plots/*.png
+analysis/plots/*.pdf
+
+# OS files
+.DS_Store
+*.DS_Store

@@ -1,0 +1,83 @@
+pipeline {
+    agent any
+
+    environment {
+        JULIA_PROJECT = "/opt/CYAxiverse.jl/"
+        OUTPUT_DIR    = "/mnt/results"
+        DB_DIR        = "/scratch/database"
+    }
+
+    stages {
+        stage('Compute Batches') {
+            steps {
+                script {
+                    sh 'python3 tools/create_batches.py --target 2000 --output batches.json'
+                    BATCHES = readJSON file: 'batches.json'
+                }
+            }
+        }
+
+        stage('Parallel Batches') {
+            steps {
+                script {
+                    def batches = readJSON file: 'batches.json'
+                    def parallel_stages = [:]
+
+                    for (b in batches) {
+                        def batchNum = b.batch
+                        def h11Min   = b.h11_min
+                        def h11Max   = b.h11_max
+                        def label    = "batch-${h11Min}-${h11Max}"
+
+                        parallel_stages[label] = {
+                            stage("h11=${h11Min}-${h11Max}") {
+                                sh """
+                                    docker cp scripts/ cyax_pluto:/home/cytools/cyaxiverse_analysis/
+                                    docker exec cyax_pluto julia --project=${JULIA_PROJECT} \
+                                        /home/cytools/cyaxiverse_analysis/scripts/run_batch.jl \
+                                        --h11-min ${h11Min} \
+                                        --h11-max ${h11Max} \
+                                        --output ${OUTPUT_DIR}
+                                """
+                            }
+                        }
+                    }
+
+                    parallel parallel_stages
+                }
+            }
+        }
+
+        stage('Merge Results') {
+            steps {
+                sh """
+                    docker cp scripts/merge_batches.jl cyax_pluto:/tmp/
+                    docker exec cyax_pluto julia --project=${JULIA_PROJECT} \
+                        /tmp/merge_batches.jl \
+                        --input ${OUTPUT_DIR} --output ${OUTPUT_DIR}
+                """
+            }
+        }
+
+        stage('Global Analysis + Plots') {
+            steps {
+                sh """
+                    docker cp scripts/global_analysis.jl cyax_pluto:/tmp/
+                    docker exec cyax_pluto julia --project=${JULIA_PROJECT} \
+                        /tmp/global_analysis.jl ${OUTPUT_DIR}
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            archiveArtifacts artifacts: "${OUTPUT_DIR}/plots/*.png"
+            archiveArtifacts artifacts: "${OUTPUT_DIR}/pipeline_summary.txt"
+            echo "Pipeline complete! All results in ${OUTPUT_DIR}"
+        }
+        failure {
+            echo "Pipeline failed. Check logs in ${OUTPUT_DIR}/logs/"
+        }
+    }
+}
