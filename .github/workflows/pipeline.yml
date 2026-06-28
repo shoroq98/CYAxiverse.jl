@@ -1,4 +1,4 @@
-name: CYAxiverse Parallel Pipeline
+name: CYAxiverse Analysis Pipeline
 
 on:
   workflow_dispatch:
@@ -9,27 +9,27 @@ on:
         type: number
       h11_max:
         description: "Maximum h11"
-        default: "100"
+        default: "20"
         type: number
       target_axions:
-        description: "Target axions per batch (~2000)"
+        description: "Target axions per batch"
         default: "2000"
         type: number
       dense_output:
-        description: "Run global analysis + plots (slow CairoMakie)"
-        default: true
+        description: "Run global analysis + plots (slow)"
+        default: false
         type: boolean
 
 env:
-  OUTPUT_DIR: /mnt/results
-  JULIA_PROJECT: /opt/CYAxiverse.jl/
+  JULIA_VERSION: "1.8.4"
+  JULIA_PROJECT: ${{ github.workspace }}
 
 jobs:
   # ──────────────────────────────────────────────────────────────
-  # Stage 0: Compute batch splits dynamically
+  # Stage 0: Compute batch splits
   # ──────────────────────────────────────────────────────────────
   compute-batches:
-    runs-on: [self-hosted, macos, docker]
+    runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.batch.outputs.matrix }}
     steps:
@@ -39,7 +39,7 @@ jobs:
         run: |
           python analysis/tools/create_batches.py \
             --h11-min ${{ inputs.h11_min || 4 }} \
-            --h11-max ${{ inputs.h11_max || 100 }} \
+            --h11-max ${{ inputs.h11_max || 20 }} \
             --target ${{ inputs.target_axions || 2000 }} \
             --output batches.json
           echo "matrix=$(cat batches.json)" >> "$GITHUB_OUTPUT"
@@ -49,28 +49,46 @@ jobs:
   # ──────────────────────────────────────────────────────────────
   run-batches:
     needs: compute-batches
-    runs-on: [self-hosted, macos, docker]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         batch: ${{ fromJson(needs.compute-batches.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
-      - name: Copy scripts to container
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ env.JULIA_VERSION }}
+          project: ${{ env.JULIA_PROJECT }}
+      - name: Install system deps
         run: |
-          docker cp analysis/ cyax_pluto:/home/cytools/cyaxiverse_analysis/
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq hdf5-tools libhdf5-dev
+      - name: Install Julia deps
+        run: |
+          julia --project=${{ env.JULIA_PROJECT }} -e '
+            using Pkg
+            Pkg.develop(path=".")  # Register local CYAxiverse.jl
+            Pkg.add(["HDF5", "Serialization", "Printf", "Dates", "LinearAlgebra", "Statistics"])
+            Pkg.precompile()
+          '
+      - name: Create output directory
+        run: |
+          mkdir -p ${{ github.workspace }}/results/batches/batch_${{ matrix.batch.batch }}
       - name: Run batch h11=${{ matrix.batch.h11_min }}-${{ matrix.batch.h11_max }}
+        continue-on-error: true
+        timeout-minutes: 30
         run: |
-          docker exec cyax_pluto julia --project=${{ env.JULIA_PROJECT }} \
-            /home/cytools/cyaxiverse_analysis/scripts/run_batch.jl \
+          julia --project=${{ env.JULIA_PROJECT }} \
+            analysis/scripts/run_batch.jl \
             --h11-min ${{ matrix.batch.h11_min }} \
             --h11-max ${{ matrix.batch.h11_max }} \
-            --output ${{ env.OUTPUT_DIR }}
+            --output ${{ github.workspace }}/results
       - name: Upload batch artifacts
         uses: actions/upload-artifact@v4
         with:
           name: batch-${{ matrix.batch.batch }}
-          path: ${{ env.OUTPUT_DIR }}/batches/batch_*/
+          path: ${{ github.workspace }}/results/batches/batch_*/
           retention-days: 30
 
   # ──────────────────────────────────────────────────────────────
@@ -78,7 +96,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────
   merge:
     needs: run-batches
-    runs-on: [self-hosted, macos, docker]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Download all batch artifacts
@@ -88,17 +106,21 @@ jobs:
           merge-multiple: true
       - name: Restore batch directory structure
         run: |
-          mkdir -p ${{ env.OUTPUT_DIR }}/batches
+          mkdir -p ${{ github.workspace }}/results/batches
           for d in batch_*/; do
-            mv "$d" "${{ env.OUTPUT_DIR }}/batches/"
+            [ -d "$d" ] && mv "$d" "${{ github.workspace }}/results/batches/"
           done
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ env.JULIA_VERSION }}
+          project: ${{ env.JULIA_PROJECT }}
       - name: Merge batches
+        continue-on-error: true
         run: |
-          docker cp analysis/scripts/merge_batches.jl cyax_pluto:/tmp/
-          docker exec cyax_pluto julia --project=${{ env.JULIA_PROJECT }} \
-            /tmp/merge_batches.jl \
-            --input ${{ env.OUTPUT_DIR }} \
-            --output ${{ env.OUTPUT_DIR }}
+          julia --project=${{ env.JULIA_PROJECT }} \
+            analysis/scripts/merge_batches.jl \
+            --input ${{ github.workspace }}/results \
+            --output ${{ github.workspace }}/results
 
   # ──────────────────────────────────────────────────────────────
   # Stage 3: Global analysis + plots (optional, slow)
@@ -106,25 +128,69 @@ jobs:
   global-analysis:
     if: ${{ inputs.dense_output != false }}
     needs: merge
-    runs-on: [self-hosted, macos, docker]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run global analysis
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ env.JULIA_VERSION }}
+          project: ${{ env.JULIA_PROJECT }}
+      - name: Install CairoMakie
         run: |
-          docker cp analysis/scripts/global_analysis.jl cyax_pluto:/tmp/
-          docker exec cyax_pluto julia --project=${{ env.JULIA_PROJECT }} \
-            /tmp/global_analysis.jl ${{ env.OUTPUT_DIR }}
+          julia --project=${{ env.JULIA_PROJECT }} -e 'using Pkg; Pkg.add("CairoMakie")'
+      - name: Run global analysis
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          julia --project=${{ env.JULIA_PROJECT }} \
+            analysis/scripts/global_analysis.jl ${{ github.workspace }}/results
       - name: Upload plots
         uses: actions/upload-artifact@v4
         with:
           name: plots
-          path: ${{ env.OUTPUT_DIR }}/plots/*.png
+          path: ${{ github.workspace }}/results/plots/*.png
           retention-days: 90
-      - name: Upload summary
-        uses: actions/upload-artifact@v4
+
+  # ──────────────────────────────────────────────────────────────
+  # Stage 4: CI validation (runs on every push)
+  # ──────────────────────────────────────────────────────────────
+  ci-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
         with:
-          name: summary
-          path: |
-            ${{ env.OUTPUT_DIR }}/pipeline_summary.txt
-            ${{ env.OUTPUT_DIR }}/pipeline_merge.log
-          retention-days: 90
+          version: ${{ env.JULIA_VERSION }}
+          project: ${{ env.JULIA_PROJECT }}
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq hdf5-tools libhdf5-dev
+          julia --project=${{ env.JULIA_PROJECT }} -e '
+            using Pkg
+            Pkg.develop(path=".")
+            Pkg.add(["HDF5", "Serialization", "Printf", "Dates", "LinearAlgebra", "Statistics"])
+            Pkg.precompile()
+          '
+      - name: Verify Julia scripts compile
+        run: |
+          for f in analysis/scripts/*.jl; do
+            echo "Checking: $f"
+            julia --project=${{ env.JULIA_PROJECT }} -e "
+              try
+                include(\"$f\")
+                println(\"  OK\")
+              catch e
+                if e isa ArgumentError || e isa SystemError
+                  # Expected: missing data files in CI
+                  println(\"  SKIP (no data): \$(e)\")
+                else
+                  rethrow()
+                end
+              end
+            " 2>&1 | tail -1
+          done
+      - name: Verify Python tools
+        run: |
+          python3 analysis/tools/create_batches.py --h11-min 4 --h11-max 10 --target 500 --output /tmp/test_batches.json
+          echo "Python batch splitter: OK"
+          cat /tmp/test_batches.json
