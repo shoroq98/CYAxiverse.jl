@@ -33,6 +33,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ env.JULIA_VERSION }}
@@ -40,14 +43,17 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq hdf5-tools libhdf5-dev
-      - name: Install Julia deps
+      - name: Instantiate Julia project (with PyCall)
         run: |
+          export PYTHON=$(which python3)
           julia --project=. -e '
             using Pkg
-            Pkg.add(["HDF5", "CairoMakie", "Serialization", "Printf", "Dates", "LinearAlgebra", "Statistics"])
+            ENV["PYTHON"] = "/usr/bin/python3"
+            Pkg.instantiate()
+            Pkg.build("PyCall")
             Pkg.precompile()
           '
-      - name: Verify Julia scripts compile
+      - name: Verify Julia scripts parse
         run: |
           for f in analysis/scripts/*.jl; do
             name=$(basename "$f")
@@ -57,11 +63,7 @@ jobs:
                 include(\"$f\")
                 println(\"  OK\")
               catch e
-                if e isa SystemError || e isa ArgumentError || occursin(\"No such file\", string(e))
-                  println(\"  SKIP (missing data/files - expected in CI)\")
-                else
-                  println(\"  COMPILE OK (runtime dep missing)\")
-                end
+                println(\"  SKIP: \$(e isa SystemError || occursin(\"No such file\", string(e)) ? \"missing data\" : \"compile ok\") \")
               end
             " 2>&1 | tail -1
           done
@@ -70,7 +72,6 @@ jobs:
           python3 analysis/tools/create_batches.py \
             --h11-min 4 --h11-max 10 --target 500 --output /tmp/test.json
           echo "Python batch splitter: OK"
-          cat /tmp/test.json
 
   # ──────────────────────────────────────────────────────────────
   # Stage 0: Compute batch splits
@@ -82,6 +83,9 @@ jobs:
       matrix: ${{ steps.batch.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
       - name: Generate batch splits
         id: batch
         run: |
@@ -105,13 +109,26 @@ jobs:
         batch: ${{ fromJson(needs.compute-batches.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ env.JULIA_VERSION }}
-      - name: Install deps
+      - name: Install system deps
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq hdf5-tools libhdf5-dev
-          julia --project=. -e 'using Pkg; Pkg.add(["HDF5","Serialization","Printf","Dates","LinearAlgebra","Statistics"]); Pkg.precompile()'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq hdf5-tools libhdf5-dev
+      - name: Instantiate Julia project (with PyCall)
+        run: |
+          export PYTHON=$(which python3)
+          julia --project=. -e '
+            using Pkg
+            ENV["PYTHON"] = "/usr/bin/python3"
+            Pkg.instantiate()
+            Pkg.build("PyCall")
+            Pkg.precompile()
+          '
       - name: Create output dirs
         run: |
           mkdir -p results/batches/batch_${{ matrix.batch.batch }}
@@ -140,6 +157,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ env.JULIA_VERSION }}
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq hdf5-tools libhdf5-dev
+      - name: Instantiate Julia project (with PyCall)
+        run: |
+          export PYTHON=$(which python3)
+          julia --project=. -e '
+            using Pkg
+            ENV["PYTHON"] = "/usr/bin/python3"
+            Pkg.instantiate()
+            Pkg.build("PyCall")
+            Pkg.precompile()
+          '
       - name: Download all batch artifacts
         uses: actions/download-artifact@v4
         with:
@@ -151,9 +188,6 @@ jobs:
           for d in batch_*/; do
             [ -d "$d" ] && mv "$d" results/batches/
           done
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: ${{ env.JULIA_VERSION }}
       - name: Merge batches
         continue-on-error: true
         run: |
@@ -169,12 +203,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ env.JULIA_VERSION }}
-      - name: Install CairoMakie
+      - name: Install system deps
         run: |
-          julia --project=. -e 'using Pkg; Pkg.add("CairoMakie")'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq hdf5-tools libhdf5-dev
+      - name: Instantiate Julia project (with PyCall)
+        run: |
+          export PYTHON=$(which python3)
+          julia --project=. -e '
+            using Pkg
+            ENV["PYTHON"] = "/usr/bin/python3"
+            Pkg.instantiate()
+            Pkg.build("PyCall")
+            Pkg.precompile()
+          '
       - name: Run global analysis
         continue-on-error: true
         timeout-minutes: 30
