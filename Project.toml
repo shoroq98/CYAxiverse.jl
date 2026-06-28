@@ -4,11 +4,13 @@ authors = ["Viraf M. Mehta"]
 version = "0.1.0"
 
 [deps]
+AbstractAlgebra = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 ArbNumerics = "7e558dbc-694d-5a72-987c-6f4ebed21442"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ClusterManagers = "34f1f09b-3a8b-5176-ab39-66d58a4d544e"
+Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"

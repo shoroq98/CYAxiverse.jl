@@ -78,11 +78,10 @@ def main():
                 "geometries": (hi - lo + 1) * args.geoms_per_h11,
                 "axions": ax,
             })
-        json_out = json.dumps(result, indent=2)
+        json_out = json.dumps(result)
         if args.output:
             with open(args.output, "w") as f:
                 f.write(json_out)
-            print(f"Saved {len(result)} batches to {args.output}")
         else:
             print(json_out)
 
