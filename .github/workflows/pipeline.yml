@@ -132,9 +132,9 @@ jobs:
           '
       - name: Download HDF5 database
         run: |
-          mkdir -p /scratch
+          sudo mkdir -p /scratch
           curl -L -o /tmp/database.tar.gz "$DB_URL"
-          tar -xzf /tmp/database.tar.gz -C /scratch
+          sudo tar -xzf /tmp/database.tar.gz -C /scratch
           echo "Database extracted: $(ls /scratch/database/ | wc -l) entries"
       - name: Create symlink for Julia project path
         run: |
@@ -189,9 +189,9 @@ jobs:
           '
       - name: Download HDF5 database
         run: |
-          mkdir -p /scratch
+          sudo mkdir -p /scratch
           curl -L -o /tmp/database.tar.gz "$DB_URL"
-          tar -xzf /tmp/database.tar.gz -C /scratch
+          sudo tar -xzf /tmp/database.tar.gz -C /scratch
           echo "Database extracted: $(ls /scratch/database/ | wc -l) entries"
       - name: Create symlink for Julia project path
         run: |
@@ -246,9 +246,9 @@ jobs:
           '
       - name: Download HDF5 database
         run: |
-          mkdir -p /scratch
+          sudo mkdir -p /scratch
           curl -L -o /tmp/database.tar.gz "$DB_URL"
-          tar -xzf /tmp/database.tar.gz -C /scratch
+          sudo tar -xzf /tmp/database.tar.gz -C /scratch
           echo "Database extracted: $(ls /scratch/database/ | wc -l) entries"
       - name: Create symlink for Julia project path
         run: |
