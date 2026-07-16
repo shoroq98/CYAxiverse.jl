@@ -136,6 +136,9 @@ jobs:
           curl -L -o /tmp/database.tar.gz "$DB_URL"
           sudo tar -xzf /tmp/database.tar.gz -C /scratch
           echo "Database extracted: $(ls /scratch/database/ | wc -l) entries"
+      - name: Install Python packages (CYTools + deps)
+        run: |
+          pip3 install numpy scipy h5py cytools --quiet
       - name: Create symlink for Julia project path
         run: |
           sudo ln -sf "$GITHUB_WORKSPACE" /opt/CYAxiverse.jl
@@ -146,11 +149,7 @@ jobs:
       - name: Run batch h11=${{ matrix.batch.h11_min }}-${{ matrix.batch.h11_max }}
         continue-on-error: true
         timeout-minutes: 30
-        run: |
-          julia --project=. analysis/scripts/run_batch.jl \
-            --h11-min ${{ matrix.batch.h11_min }} \
-            --h11-max ${{ matrix.batch.h11_max }} \
-            --output results
+        run: julia --project=. analysis/scripts/run_batch.jl --h11-min ${{ matrix.batch.h11_min }} --h11-max ${{ matrix.batch.h11_max }} --output results
       - name: Upload batch artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -193,6 +192,9 @@ jobs:
           curl -L -o /tmp/database.tar.gz "$DB_URL"
           sudo tar -xzf /tmp/database.tar.gz -C /scratch
           echo "Database extracted: $(ls /scratch/database/ | wc -l) entries"
+      - name: Install Python packages (CYTools + deps)
+        run: |
+          pip3 install numpy scipy h5py cytools --quiet
       - name: Create symlink for Julia project path
         run: |
           sudo ln -sf "$GITHUB_WORKSPACE" /opt/CYAxiverse.jl
@@ -211,9 +213,7 @@ jobs:
           echo "Restored $(ls results/batches/ 2>/dev/null | wc -l) batch directories"
       - name: Merge batches
         continue-on-error: true
-        run: |
-          julia --project=. analysis/scripts/merge_batches.jl \
-            --input results --output results
+        run: julia --project=. analysis/scripts/merge_batches.jl --input results --output results
 
   # ──────────────────────────────────────────────────────────────
   # Stage 3: Global analysis + plots
@@ -250,6 +250,9 @@ jobs:
           curl -L -o /tmp/database.tar.gz "$DB_URL"
           sudo tar -xzf /tmp/database.tar.gz -C /scratch
           echo "Database extracted: $(ls /scratch/database/ | wc -l) entries"
+      - name: Install Python packages (CYTools + deps)
+        run: |
+          pip3 install numpy scipy h5py cytools --quiet
       - name: Create symlink for Julia project path
         run: |
           sudo ln -sf "$GITHUB_WORKSPACE" /opt/CYAxiverse.jl
