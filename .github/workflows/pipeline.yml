@@ -24,6 +24,7 @@ on:
 
 env:
   JULIA_VERSION: "1.8.4"
+  DB_URL: https://github.com/shoroq98/CYAxiverse.jl/releases/download/dataset-v1/database.tar.gz
 
 jobs:
   # ──────────────────────────────────────────────────────────────
@@ -129,13 +130,22 @@ jobs:
             Pkg.build("PyCall")
             Pkg.precompile()
           '
+      - name: Download HDF5 database
+        run: |
+          mkdir -p /scratch
+          curl -L -o /tmp/database.tar.gz "$DB_URL"
+          tar -xzf /tmp/database.tar.gz -C /scratch
+          echo "Database extracted: $(ls /scratch/database/ | wc -l) entries"
+      - name: Create symlink for Julia project path
+        run: |
+          sudo ln -sf "$GITHUB_WORKSPACE" /opt/CYAxiverse.jl
       - name: Create output dirs
         run: |
           mkdir -p results/batches/batch_${{ matrix.batch.batch }}
           mkdir -p results/outputs results/plots results/logs
       - name: Run batch h11=${{ matrix.batch.h11_min }}-${{ matrix.batch.h11_max }}
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 30
         run: |
           julia --project=. analysis/scripts/run_batch.jl \
             --h11-min ${{ matrix.batch.h11_min }} \
@@ -177,6 +187,15 @@ jobs:
             Pkg.build("PyCall")
             Pkg.precompile()
           '
+      - name: Download HDF5 database
+        run: |
+          mkdir -p /scratch
+          curl -L -o /tmp/database.tar.gz "$DB_URL"
+          tar -xzf /tmp/database.tar.gz -C /scratch
+          echo "Database extracted: $(ls /scratch/database/ | wc -l) entries"
+      - name: Create symlink for Julia project path
+        run: |
+          sudo ln -sf "$GITHUB_WORKSPACE" /opt/CYAxiverse.jl
       - name: Download all batch artifacts
         uses: actions/download-artifact@v4
         with:
@@ -225,6 +244,15 @@ jobs:
             Pkg.build("PyCall")
             Pkg.precompile()
           '
+      - name: Download HDF5 database
+        run: |
+          mkdir -p /scratch
+          curl -L -o /tmp/database.tar.gz "$DB_URL"
+          tar -xzf /tmp/database.tar.gz -C /scratch
+          echo "Database extracted: $(ls /scratch/database/ | wc -l) entries"
+      - name: Create symlink for Julia project path
+        run: |
+          sudo ln -sf "$GITHUB_WORKSPACE" /opt/CYAxiverse.jl
       - name: Run global analysis
         continue-on-error: true
         timeout-minutes: 30
