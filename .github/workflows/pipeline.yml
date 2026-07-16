@@ -183,11 +183,13 @@ jobs:
           pattern: batch-*
           merge-multiple: true
       - name: Restore batch directories
+        continue-on-error: true
         run: |
           mkdir -p results/batches
           for d in batch_*/; do
             [ -d "$d" ] && mv "$d" results/batches/
           done
+          echo "Restored $(ls results/batches/ 2>/dev/null | wc -l) batch directories"
       - name: Merge batches
         continue-on-error: true
         run: |
