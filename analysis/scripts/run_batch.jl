@@ -116,7 +116,7 @@ end
 
 function _log10_density_ratio(log10m::Float64, log10f::Float64, theta::Float64)
     theta == 0.0 && return -Inf
-    log10(0.4 / DM_DENSITY) + 2.0 * log10(abs(theta / (π / 2.0))) +
+    log10(11.3) + 2.0 * log10(abs(theta / (π / 2.0))) +
     0.5 * (log10m + 17.0) + 2.0 * (log10f - 16.0)
 end
 

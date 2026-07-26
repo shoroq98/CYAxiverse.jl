@@ -37,13 +37,8 @@ function classify_axion(log10m; frozen_max::Real=-33.0, heavy_min::Real=2.0)
 end
 
 function log10_axion_density_ratio(log10m, log10f; θ=nothing)
-    log10_θ = θ === nothing ? 0.0 : 2.0 * log10(θ / π)
-    H_eq = -27.0
-    if log10m > H_eq
-        return log10_θ + 1.5*(log10f - 12.0) - 0.5*(log10m + 22.0)
-    else
-        return log10_θ + 2.0*(log10f - 12.0) + 0.5*(log10m + 22.0)
-    end
+    log10_θ = θ === nothing ? 0.0 : 2.0 * log10(θ / (π / 2))
+    return log10(11.3) + log10_θ + 0.5*log10m + 2.0*log10f - 23.5
 end
 
 function log10sumexp10(vals)

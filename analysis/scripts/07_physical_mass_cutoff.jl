@@ -22,7 +22,7 @@ log_message("Loaded $(length(axions)) axions from $(length(geometries)) geometri
 
 function log10_density_ratio_one_axion(log10m::Float64, log10f::Float64, theta::Float64)
     theta == 0.0 && return -Inf
-    return log10(0.4 / DM_DENSITY) +
+    return log10(11.3) +
            2.0 * log10(abs(theta / (π / 2.0))) +
            0.5 * (log10m + 17.0) +
            2.0 * (log10f - 16.0)
